@@ -1,5 +1,6 @@
 package com.hotwaxx.Assesment.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -19,8 +20,12 @@ public class OrderHeader {
     @Column(name = "ORDER_NAME" , length = 255 , nullable = false )
     private String order_name ;
 
+    @JsonIgnore
     @ManyToOne
     private Party party ;
+
+    @Column
+    private String party_id ;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItem> orderItems ;

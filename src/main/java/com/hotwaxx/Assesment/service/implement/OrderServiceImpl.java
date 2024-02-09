@@ -2,12 +2,15 @@ package com.hotwaxx.Assesment.service.implement;
 
 import com.hotwaxx.Assesment.entity.OrderHeader;
 import com.hotwaxx.Assesment.entity.OrderItem;
+import com.hotwaxx.Assesment.entity.Party;
 import com.hotwaxx.Assesment.repository.OrderItemRepo;
 import com.hotwaxx.Assesment.repository.OrderRepo;
+import com.hotwaxx.Assesment.repository.PartyRepo;
 import com.hotwaxx.Assesment.service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -18,20 +21,28 @@ public class OrderServiceImpl implements OrderService {
 
     @Autowired
     OrderItemRepo orderItem;
+    @Autowired
+    PartyRepo partyRepo ;
 
     @Override
     public List<OrderHeader> getAllOrderItems() {
-        return orderRepo.findAll();
+        List<OrderHeader> allOrders = orderRepo.findAll();
+
+        for (OrderHeader order : allOrders) {
+            if (order.getEncryptedCreditCard() != null) {
+                order.setEncryptedCreditCard(getDecryptedValue(order.getEncryptedCreditCard(), 8));
+            }
+        }
+        return allOrders;
     }
 
     @Override
-    public OrderHeader getOrderItemById(String orderId) throws Exception {
+    public OrderHeader getOrderItemById(String orderId) {
         Optional<OrderHeader> order = orderRepo.findById(orderId);
         if ( order.isPresent() ) {
             OrderHeader order1 = order.get() ;
-            String secretKey = "yourSecretKey";
             if (order1.getEncryptedCreditCard() != null) {
-                order1.setEncryptedCreditCard(EncryptionUtils.decrypt(order1.getEncryptedCreditCard())) ;
+                order1.setEncryptedCreditCard(getDecryptedValue(order1.getEncryptedCreditCard() , 8 )) ;
             }
             return order1 ;
         }
@@ -43,26 +54,16 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public OrderHeader addOrder(OrderHeader order) {
-        try {
-            // Check if credit card data is not null before encryption
-            String secretKey = "yourSecretKey";
-            if (order.getEncryptedCreditCard() != null) {
-                order.setEncryptedCreditCard(EncryptionUtils.encrypt(order.getEncryptedCreditCard()));
-            }
-
-            // Save the order with encrypted credit card data
-            OrderHeader savedOrder = orderRepo.save(order);
-
-            // Ensure the saved order contains decrypted credit card data before returning
-            String decryptedCreditCard = EncryptionUtils.decrypt(savedOrder.getEncryptedCreditCard());
-            savedOrder.setEncryptedCreditCard(decryptedCreditCard);
-
-            return savedOrder;
-        } catch (Exception e) {
-            // Handle encryption/decryption exceptions
-            e.printStackTrace(); // or log the exception
-            return null;
+        String partyID =  order.getParty_id() ;
+        System.out.println(partyID);
+        Optional<Party> party  = partyRepo.findById(partyID) ;
+        System.out.println(party);
+        party.ifPresent(order::setParty) ;
+        if(order.getEncryptedCreditCard() != null ){
+                order.setEncryptedCreditCard(getEncryptedValue(order.getEncryptedCreditCard() , 8 ));
         }
+        OrderHeader savedOrder = orderRepo.save(order);
+        return savedOrder;
     }
 
     @Override
@@ -73,11 +74,9 @@ public class OrderServiceImpl implements OrderService {
         if (foundOrderOptional.isPresent()) {
             OrderHeader foundOrder = foundOrderOptional.get();
             List<OrderItem> orderItemList = order.getOrderItems();
-            // Set the order for each item and save
             for (OrderItem item : orderItemList) {
                 System.out.println(item);
                 item.setOrder(foundOrder);
-
                 orderItem.save(item);
             }
             return foundOrder;
@@ -88,7 +87,6 @@ public class OrderServiceImpl implements OrderService {
     }
 
     public OrderHeader updateOrder(OrderHeader updatedOrder) {
-        // Fetch the existing order from the database
         Optional<OrderHeader> existingOrderOptional = orderRepo.findById(updatedOrder.getOrder_id());
 
         if (existingOrderOptional.isPresent()) {
@@ -134,17 +132,32 @@ public class OrderServiceImpl implements OrderService {
             if (updatedOrder.getCompletedDate() != null) {
                 existingOrder.setCompletedDate(updatedOrder.getCompletedDate());
             }
-
-            // Repeat the above checks for other fields
-
-            // Save the updated order back to the database
             return orderRepo.save(existingOrder);
         } else {
-            // Handle case where the order with the given ID is not found
             return null;
         }
     }
 
+
+    private static String getDecryptedValue(String encrypt, int secret_key) {
+        String decrypted = "";
+        for(int i =0; i < encrypt.length();i++) {
+            char ch = encrypt.charAt(i);
+            ch -= secret_key;
+            decrypted = decrypted + ch;
+        }
+        return decrypted;
+    }
+
+    private static String getEncryptedValue(String value, int secret_key) {
+        String encrypt = "";
+        for (int i = 0; i < value.length(); i++) {
+            char ch = value.charAt(i);
+            ch += secret_key;
+            encrypt = encrypt + ch;
+        }
+        return encrypt;
+    }
 
 
 }

@@ -1,5 +1,6 @@
 package com.hotwaxx.Assesment.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -17,6 +18,7 @@ public class Person {
     @GeneratedValue(strategy = GenerationType.UUID)
     private String partyId;
 
+    @JsonIgnore
     @ManyToOne
     private Party party ;
 
